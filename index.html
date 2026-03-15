@@ -1,1 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF, CDF & P-Value — Interactive Explainer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #ffffff; --bg2: #f5f5f3; --bg3: #eeecea;
+    --text: #1a1a18; --text2: #5c5b57; --text3: #8c8b86;
+    --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.2);
+    --blue: #185FA5; --blue-bg: #E6F1FB; --blue-mid: #3B8BD4;
+    --green: #0F6E56; --green-bg: #E1F5EE; --green-mid: #1D9E75;
+    --red: #A32D2D; --red-bg: #FCEBEB; --red-mid: #E24B4A;
+    --amber: #854F0B; --amber-bg: #FAEEDA; --amber-mid: #EF9F27;
+    --purple: #3C3489; --purple-bg: #EEEDFE;
+    --gc: rgba(0,0,0,0.07); --tc: #73726c;
+    --radius: 10px; --radius-sm: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a; --bg2: #252523; --bg3: #2e2e2b;
+      --text: #e8e6e0; --text2: #9c9a92; --text3: #6e6d68;
+      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
+      --blue: #85B7EB; --blue-bg: #0C447C; --blue-mid: #3B8BD4;
+      --green: #5DCAA5; --green-bg: #085041; --green-mid: #1D9E75;
+      --red: #F09595; --red-bg: #501313; --red-mid: #E24B4A;
+      --amber: #FAC775; --amber-bg: #633806; --amber-mid: #EF9F27;
+      --purple: #CECBF6; --purple-bg: #3C3489;
+      --gc: rgba(255,255,255,0.06); --tc: #9c9a92;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2);
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg3); color: var(--text);
+    min-height: 100vh; padding: 24px 16px 48px;
+  }
+  .page { max-width: 760px; margin: 0 auto; }
 
+  /* Header */
+  .header { text-align: center; margin-bottom: 32px; }
+  .header h1 { font-size: 26px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .header p { font-size: 15px; color: var(--text2); line-height: 1.6; max-width: 520px; margin: 0 auto; }
+  .badge-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+  .badge { padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+  .badge-blue { background: var(--blue-bg); color: var(--blue); }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+
+  /* Step nav */
+  .step-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; justify-content: center; }
+  .step-btn {
+    padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border2);
+    background: var(--bg); color: var(--text2); font-size: 12px; cursor: pointer;
+    transition: all .18s; font-family: inherit;
+  }
+  .step-btn:hover:not(.active) { background: var(--bg2); }
+  .step-btn.active { background: var(--blue-bg); color: var(--blue); border-color: var(--blue-mid); font-weight: 500; }
+
+  /* Card */
+  .card { background: var(--bg); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); padding: 24px; }
+
+  /* Tags */
+  .tag { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: .03em; margin-bottom: 12px; text-transform: uppercase; }
+  .tag-intro { background: var(--purple-bg); color: var(--purple); }
+  .tag-pdf   { background: var(--blue-bg);   color: var(--blue); }
+  .tag-cdf   { background: var(--green-bg);  color: var(--green); }
+  .tag-p     { background: var(--red-bg);    color: var(--red); }
+
+  h2 { font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+  p  { font-size: 14px; color: var(--text2); line-height: 1.75; margin-bottom: 12px; }
+  p:last-child { margin-bottom: 0; }
+
+  /* Callout boxes */
+  .box { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 12px 16px; margin: 14px 0; font-size: 14px; line-height: 1.65; }
+  .box-blue   { border-left: 3px solid var(--blue-mid);  background: var(--blue-bg);  color: var(--text); }
+  .box-green  { border-left: 3px solid var(--green-mid); background: var(--green-bg); color: var(--text); }
+  .box-amber  { border-left: 3px solid var(--amber-mid); background: var(--amber-bg); color: var(--text); }
+  .box-red    { border-left: 3px solid var(--red-mid);   background: var(--red-bg);   color: var(--text); }
+  .box-code   { border-left: 3px solid var(--green-mid); background: var(--bg2); font-family: 'Courier New', monospace; font-size: 13px; color: var(--text); }
+
+  /* Slider */
+  .slider-row { display: flex; align-items: center; gap: 12px; margin: 14px 0; }
+  .slider-row label { font-size: 13px; color: var(--text2); white-space: nowrap; min-width: 90px; }
+  .slider-row input[type=range] {
+    flex: 1; -webkit-appearance: none; height: 4px;
+    background: linear-gradient(to right, var(--blue-mid) var(--pct,50%), var(--border2) var(--pct,50%));
+    border-radius: 2px; cursor: pointer; outline: none;
+  }
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--blue-mid); border: 2px solid var(--bg); box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .slider-row input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px; border-radius: 50%; background: var(--blue-mid);
+    border: 2px solid var(--bg); box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .slider-val { font-size: 14px; font-weight: 600; min-width: 64px; text-align: right; color: var(--text); }
+
+  /* Canvas */
+  .canvas-wrap { position: relative; width: 100%; margin: 16px 0; }
+  .canvas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+
+  /* Verdict */
+  .verdict { padding: 11px 16px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; text-align: center; margin-top: 12px; transition: background .2s, color .2s; }
+  .verdict-sig { background: var(--red-bg);   color: var(--red); }
+  .verdict-ns  { background: var(--green-bg); color: var(--green); }
+
+  /* Tail type buttons */
+  .tail-btns { display: flex; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
+  .tail-btn {
+    flex: 1; min-width: 140px; padding: 9px 12px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border2); background: var(--bg2); font-size: 12px;
+    cursor: pointer; color: var(--text2); transition: all .18s; font-family: inherit; text-align: center;
+  }
+  .tail-btn:hover:not(.sel) { background: var(--bg3); }
+  .tail-btn.sel { border-color: var(--red-mid); background: var(--red-bg); color: var(--red); font-weight: 500; }
+
+  /* Summary grid */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .stat-card { background: var(--bg2); border-radius: var(--radius-sm); border: 1px solid var(--border); padding: 12px; text-align: center; }
+  .stat-label { font-size: 11px; color: var(--text3); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
+  .stat-val { font-size: 18px; font-weight: 600; }
+
+  /* Comparison cards */
+  .cmp-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 16px 0; }
+  .cmp-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; text-align: center; }
+  .cmp-icon { font-size: 24px; margin-bottom: 8px; }
+  .cmp-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .cmp-desc { font-size: 12px; color: var(--text2); line-height: 1.55; }
+
+  /* Nav */
+  .nav-row { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; gap: 12px; }
+  .nav-btn {
+    padding: 10px 22px; border-radius: var(--radius-sm); border: 1px solid var(--border2);
+    background: var(--bg); color: var(--text); font-size: 14px; cursor: pointer;
+    transition: all .15s; font-family: inherit;
+  }
+  .nav-btn:hover { background: var(--bg2); }
+  .nav-btn.primary { background: var(--blue-mid); color: #fff; border-color: var(--blue-mid); }
+  .nav-btn.primary:hover { opacity: .9; }
+  .nav-btn:disabled { opacity: .3; cursor: default; }
+  .step-counter { font-size: 13px; color: var(--text3); }
+
+  /* Step panels */
+  .step-panel { display: none; }
+  .step-panel.active { display: block; }
+
+  /* Progress dots */
+  .progress { display: flex; gap: 6px; justify-content: center; margin-bottom: 20px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); transition: background .2s; }
+  .dot.active { background: var(--blue-mid); }
+  .dot.done { background: var(--green-mid); }
+
+  /* Footer */
+  .footer { text-align: center; margin-top: 40px; font-size: 12px; color: var(--text3); line-height: 1.8; }
+  .footer a { color: var(--blue); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+
+  @media (max-width: 520px) {
+    .stat-grid, .cmp-grid { grid-template-columns: 1fr; }
+    .canvas-grid { grid-template-columns: 1fr; }
+    .tail-btn { min-width: 100%; }
+    .header h1 { font-size: 21px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <h1>📊 PDF, CDF & P-Value</h1>
+    <p>An interactive, beginner-friendly explainer. Build intuition step by step — no formulas until you're ready.</p>
+    <div class="badge-row">
+      <span class="badge badge-blue">PDF — shape of data</span>
+      <span class="badge badge-green">CDF — running total</span>
+      <span class="badge badge-red">P-value — how surprising?</span>
+    </div>
+  </div>
+
+  <div class="step-nav" id="stepNav">
+    <button class="step-btn active" onclick="goTo(0)">① Distribution</button>
+    <button class="step-btn" onclick="goTo(1)">② PDF</button>
+    <button class="step-btn" onclick="goTo(2)">③ CDF</button>
+    <button class="step-btn" onclick="goTo(3)">④ P-value</button>
+    <button class="step-btn" onclick="goTo(4)">⑤ Three tails</button>
+    <button class="step-btn" onclick="goTo(5)">⑥ Summary</button>
+  </div>
+
+  <div class="progress" id="progress">
+    <div class="dot active" id="d0"></div><div class="dot" id="d1"></div>
+    <div class="dot" id="d2"></div><div class="dot" id="d3"></div>
+    <div class="dot" id="d4"></div><div class="dot" id="d5"></div>
+  </div>
+
+  <div class="card">
+
+    <!-- STEP 0 -->
+    <div class="step-panel active" id="panel0">
+      <span class="tag tag-intro">Starting point</span>
+      <h2>What does a distribution look like?</h2>
+      <div class="box box-blue">
+        💡 Imagine measuring the heights of 1,000 students. Most are close to the average. Very few are extremely short or extremely tall. If you plotted every height, you'd get a <strong>bell-shaped curve</strong> — that's a <em>distribution</em>.
+      </div>
+      <p>The peak is where most values land. The tails are where rare values live. Move further from the center and values become increasingly uncommon.</p>
+      <div class="canvas-wrap"><canvas id="c0" height="210"></canvas></div>
+      <div class="box box-amber">
+        ⚠️ The x-axis shows possible values (like height). The y-axis shows how <em>common</em> each value is. The curve is just a picture of how data spreads out.
+      </div>
+    </div>
+
+    <!-- STEP 1 -->
+    <div class="step-panel" id="panel1">
+      <span class="tag tag-pdf">PDF — Probability Density Function</span>
+      <h2>The PDF — "how dense is this spot?"</h2>
+      <div class="box box-blue">
+        💡 Think of the PDF like a <strong>crowd density map</strong>. Where the curve is <strong>tall</strong>, lots of values are packed in. Where it's <strong>flat</strong>, values are sparse. It tells you: <em>"How crowded is this region?"</em>
+      </div>
+      <p>Drag the slider to pick any point <strong>x</strong>. The orange dot shows the PDF value — the height of the curve at that point. Notice it's tallest in the center and nearly zero at the extremes.</p>
+      <div class="slider-row">
+        <label>Point x</label>
+        <input type="range" id="s1" min="-300" max="300" value="0" oninput="updatePDF(this.value/100)">
+        <span class="slider-val" id="s1v">x = 0.00</span>
+      </div>
+      <div class="canvas-wrap"><canvas id="c1" height="220"></canvas></div>
+      <div class="box box-code">
+        f(x) = height of the curve at point x<br><br>
+        ⚠️  f(x) is NOT a probability — it's a density value.<br>
+        ✅  Probability = the AREA between two points under the curve.
+      </div>
+      <div class="box box-amber">
+        Key insight: If you add up all the area under the PDF (from −∞ to +∞), you always get exactly <strong>1</strong>. Because <em>something</em> must always happen!
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="step-panel" id="panel2">
+      <span class="tag tag-cdf">CDF — Cumulative Distribution Function</span>
+      <h2>The CDF — "what fraction is below x?"</h2>
+      <div class="box box-green">
+        💡 Imagine lining up all 1,000 students by height. The CDF asks: <em>"If I stand at height x, what fraction of students are shorter than me?"</em><br><br>
+        At the average → 50% are shorter. Very tall → ~99% are shorter. Very short → nearly 0%.
+      </div>
+      <p>Move the slider. The <strong>blue shaded area</strong> on the left chart grows — that's the area being accumulated. The right chart plots this accumulated value directly as an S-shaped curve.</p>
+      <div class="slider-row">
+        <label>Point x</label>
+        <input type="range" id="s2" min="-300" max="300" value="0" oninput="updateCDF(this.value/100)">
+        <span class="slider-val" id="s2v">x = 0.00</span>
+      </div>
+      <div class="canvas-grid">
+        <div><div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:4px">PDF — area accumulating</div><canvas id="c2a" height="190"></canvas></div>
+        <div><div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:4px">CDF — F(x) = accumulated area</div><canvas id="c2b" height="190"></canvas></div>
+      </div>
+      <div class="box box-code">
+        F(x) = P(X ≤ x) = area under PDF from −∞ to x<br><br>
+        F(−∞) = 0.00  →  nothing is below −∞<br>
+        F( 0 ) = 0.50  →  50% are below the mean<br>
+        F(+∞) = 1.00  →  everything is below +∞<br><br>
+        And:  f(x) = d/dx F(x)  [PDF = derivative of CDF]
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="step-panel" id="panel3">
+      <span class="tag tag-p">P-value</span>
+      <h2>The P-value — "how surprising is my result?"</h2>
+      <div class="box box-red">
+        💡 You run an experiment and get a result. You ask: <em>"If nothing special was going on (null hypothesis H₀), how likely is it I'd get a result THIS extreme just by chance?"</em><br><br>
+        That probability is the <strong>p-value</strong>. Think of it as a <strong>surprise meter</strong>.<br><br>
+        🟢 Large p-value → not surprising → no evidence against H₀<br>
+        🔴 Small p-value → very surprising → strong evidence against H₀
+      </div>
+      <p>Drag the slider to move your observed result. Watch the <strong>red tail area</strong> — that's the p-value. The further into the tail, the more surprising, the smaller the p-value.</p>
+      <div class="slider-row">
+        <label>Observed z</label>
+        <input type="range" id="s3" min="-300" max="300" value="200" oninput="updateP(this.value/100)">
+        <span class="slider-val" id="s3v">z = 2.00</span>
+      </div>
+      <div class="canvas-wrap"><canvas id="c3" height="220"></canvas></div>
+      <div id="verdict3" class="verdict verdict-sig">p = 0.0228 — Rare! Strong evidence against H₀</div>
+      <div class="box box-amber" style="margin-top:14px">
+        The standard threshold is <strong>α = 0.05</strong>. If p &lt; 0.05, we say the result is "statistically significant." This is a convention — not a law of nature!
+      </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="step-panel" id="panel4">
+      <span class="tag tag-p">Three types of p-value</span>
+      <h2>Upper tail, lower tail, and two tails</h2>
+      <div class="box box-blue">
+        💡 The type of p-value you use depends on your research question:<br><br>
+        ▶ "Is the effect <strong>bigger</strong> than expected?" → right (upper) tail<br>
+        ◀ "Is the effect <strong>smaller</strong> than expected?" → left (lower) tail<br>
+        ◀▶ "Is the effect <strong>different</strong> in any direction?" → both tails
+      </div>
+      <div class="tail-btns">
+        <button class="tail-btn sel" id="tb0" onclick="setTail(0)">▶ Upper-tail<br><small>Hₐ: μ &gt; μ₀</small></button>
+        <button class="tail-btn" id="tb1" onclick="setTail(1)">◀ Lower-tail<br><small>Hₐ: μ &lt; μ₀</small></button>
+        <button class="tail-btn" id="tb2" onclick="setTail(2)">◀▶ Two-tailed<br><small>Hₐ: μ ≠ μ₀</small></button>
+      </div>
+      <div class="slider-row">
+        <label>Observed z</label>
+        <input type="range" id="s4" min="-300" max="300" value="165" oninput="updateTail(this.value/100)">
+        <span class="slider-val" id="s4v">z = 1.65</span>
+      </div>
+      <div class="canvas-wrap"><canvas id="c4" height="220"></canvas></div>
+      <div class="box box-code" id="tailFormula">P-value = P(Z ≥ z | H₀) = 1 − F(z)  [upper tail]</div>
+      <div id="verdict4" class="verdict verdict-ns">p = 0.0495</div>
+    </div>
+
+    <!-- STEP 5 -->
+    <div class="step-panel" id="panel5">
+      <span class="tag tag-intro">Full picture</span>
+      <h2>Everything in one view</h2>
+      <div class="box box-blue">
+        💡 PDF → CDF → p-value is one continuous story. The PDF is the curve's shape. The CDF accumulates area from the left. The p-value is a specific tail area at your observed data point.
+      </div>
+      <div class="cmp-grid">
+        <div class="cmp-card">
+          <div class="cmp-icon">📐</div>
+          <div class="cmp-title" style="color:var(--blue)">PDF  f(x)</div>
+          <div class="cmp-desc">Height of the curve. Shows where values are dense. <em>Not a probability itself.</em></div>
+        </div>
+        <div class="cmp-card">
+          <div class="cmp-icon">📈</div>
+          <div class="cmp-title" style="color:var(--green)">CDF  F(x)</div>
+          <div class="cmp-desc">Area to the left of x. Gives P(X ≤ x). Starts at 0, ends at 1.</div>
+        </div>
+        <div class="cmp-card">
+          <div class="cmp-icon">🚨</div>
+          <div class="cmp-title" style="color:var(--red)">P-value</div>
+          <div class="cmp-desc">Area in the tail beyond your observed z. How surprising is the result?</div>
+        </div>
+      </div>
+      <div class="canvas-wrap"><canvas id="c5" height="230"></canvas></div>
+      <div class="slider-row">
+        <label>Observed z</label>
+        <input type="range" id="s5" min="0" max="350" value="165" oninput="updateSummary(this.value/100)">
+        <span class="slider-val" id="s5v">z = 1.65</span>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">PDF height f(z)</div>
+          <div class="stat-val" id="ss1" style="color:var(--blue)">0.1023</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">CDF value F(z)</div>
+          <div class="stat-val" id="ss2" style="color:var(--green)">0.9505</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">P-value (right tail)</div>
+          <div class="stat-val" id="ss3" style="color:var(--red)">0.0495</div>
+        </div>
+      </div>
+      <div class="box box-code" style="margin-top:16px">
+        The relationship in one line:<br><br>
+        PDF  ──[integrate from −∞ to x]──▶  CDF<br>
+        CDF  ──[evaluate at z, take tail ]──▶  p-value<br><br>
+        p = 1 − F(z)    [right tail, most common]<br>
+        p = F(z)         [left tail]<br>
+        p = 2·(1−F(|z|)) [two-tailed]
+      </div>
+    </div>
+
+    <!-- NAV -->
+    <div class="nav-row">
+      <button class="nav-btn" id="prevBtn" onclick="goTo(curStep-1)" disabled>← Previous</button>
+      <span class="step-counter" id="stepCounter">Step 1 of 6</span>
+      <button class="nav-btn primary" id="nextBtn" onclick="goTo(curStep+1)">Next →</button>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Built with ❤️ for students learning statistics &nbsp;·&nbsp; <a href="https://github.com">View on GitHub</a></p>
+    <p style="margin-top:4px">Uses <a href="https://www.chartjs.org/">Chart.js</a> — no other dependencies. Drop <code>index.html</code> anywhere.</p>
+  </div>
+</div>
+
+<script>
+let curStep = 0;
+const STEPS = 6;
+const charts = {};
+const isDark = matchMedia('(prefers-color-scheme:dark)').matches;
+const gc = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
+const tc = isDark ? '#9c9a92' : '#73726c';
+const N = 200;
+const xs = Array.from({length:N+1}, (_,i) => -4 + i * 8 / N);
+
+function phi(x) { return Math.exp(-0.5*x*x) / Math.sqrt(2*Math.PI); }
+function Phi(x) {
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const p = 1 - phi(Math.abs(x)) * t * (0.319381530 + t*(-0.356563782 + t*(1.781477937 + t*(-1.821255978 + t*1.330274429))));
+  return x >= 0 ? p : 1 - p;
+}
+
+function goTo(n) {
+  if (n < 0 || n >= STEPS) return;
+  document.getElementById('panel' + curStep).classList.remove('active');
+  document.querySelectorAll('.step-btn')[curStep].classList.remove('active');
+  document.getElementById('d' + curStep).className = 'dot done';
+  curStep = n;
+  document.getElementById('panel' + curStep).classList.add('active');
+  document.querySelectorAll('.step-btn')[curStep].classList.add('active');
+  document.getElementById('d' + curStep).className = 'dot active';
+  document.getElementById('prevBtn').disabled = curStep === 0;
+  document.getElementById('nextBtn').disabled = curStep === STEPS - 1;
+  document.getElementById('nextBtn').textContent = curStep === STEPS - 2 ? 'Finish ✓' : 'Next →';
+  document.getElementById('stepCounter').textContent = `Step ${curStep+1} of ${STEPS}`;
+  if (curStep === 1 && !charts.c1) initC1();
+  if (curStep === 2 && !charts.c2a) initC2();
+  if (curStep === 3 && !charts.c3) { initC3(); updateP(2); }
+  if (curStep === 4 && !charts.c4) { initC4(); updateTail(1.65); }
+  if (curStep === 5 && !charts.c5) { initC5(); updateSummary(1.65); }
+}
+
+const baseScales = (xLabel, yLabel, yMin, yMax) => ({
+  x: { type:'linear', min:-4, max:4, title:{display:!!xLabel, text:xLabel||'', color:tc, font:{size:11}},
+       grid:{color:gc}, ticks:{color:tc, font:{size:10}, maxTicksLimit:9} },
+  y: { min: yMin||0, max: yMax||0.45,
+       title:{display:!!yLabel, text:yLabel||'', color:tc, font:{size:11}},
+       grid:{color:gc}, ticks:{color:tc, font:{size:10}, maxTicksLimit:5} }
+});
+const noTooltip = { responsive:true, maintainAspectRatio:false, animation:{duration:0},
+                    plugins:{legend:{display:false}, tooltip:{enabled:false}} };
+
+// --- STEP 0 ---
+new Chart(document.getElementById('c0'), {
+  type: 'scatter',
+  data: { datasets: [{
+    data: xs.map(x => ({x, y: phi(x)})),
+    borderColor: '#3B8BD4', backgroundColor: 'rgba(59,139,212,0.12)',
+    showLine:true, pointRadius:0, borderWidth:2, fill:true, tension:0.4
+  }]},
+  options: {
+    ...noTooltip,
+    scales: {
+      x: { type:'linear', min:-4, max:4, grid:{color:gc},
+           ticks:{ color:tc, font:{size:10},
+             callback: v => ({'-3':'Very short','-1.5':'Short','0':'Average','1.5':'Tall','3':'Very tall'})[String(v)] || '' }},
+      y: { display:false }
+    }
+  }
+});
+
+// --- STEP 1 ---
+function initC1() {
+  charts.c1 = new Chart(document.getElementById('c1'), {
+    type:'scatter',
+    data: { datasets: [
+      { data:xs.map(x=>({x,y:phi(x)})), borderColor:'#3B8BD4', backgroundColor:'rgba(59,139,212,0.1)', showLine:true, pointRadius:0, borderWidth:2, fill:true, tension:0.4 },
+      { data:[{x:0,y:0},{x:0,y:phi(0)}], borderColor:'#EF9F27', borderDash:[4,3], showLine:true, pointRadius:0, borderWidth:2 },
+      { data:[{x:0,y:phi(0)}], borderColor:'#EF9F27', backgroundColor:'#EF9F27', pointRadius:7, showLine:false }
+    ]},
+    options: { ...noTooltip, scales:{ x:{...baseScales('x','f(x)').x}, y:{min:0, max:0.45, grid:{color:gc}, ticks:{color:tc,font:{size:10},maxTicksLimit:5}} } }
+  });
+}
+function updatePDF(z) {
+  document.getElementById('s1v').textContent = 'x = ' + z.toFixed(2);
+  if (!charts.c1) return;
+  charts.c1.data.datasets[1].data = [{x:z,y:0},{x:z,y:phi(z)}];
+  charts.c1.data.datasets[2].data = [{x:z,y:phi(z)}];
+  charts.c1.update('none');
+}
+
+// --- STEP 2 ---
+function initC2() {
+  const opts2 = { ...noTooltip, scales:{ x:{type:'linear',min:-4,max:4,grid:{color:gc},ticks:{color:tc,font:{size:9}}}, y:{min:0,max:0.45,grid:{color:gc},ticks:{color:tc,font:{size:9},maxTicksLimit:4}} } };
+  charts.c2a = new Chart(document.getElementById('c2a'), {
+    type:'scatter',
+    data: { datasets: [
+      { data:xs.map(x=>({x,y:phi(x)})), borderColor:'#3B8BD4', backgroundColor:'rgba(59,139,212,0.06)', showLine:true, pointRadius:0, borderWidth:2, fill:true, tension:0.4, order:3 },
+      { data:xs.filter(x=>x<=0).map(x=>({x,y:phi(x)})), borderColor:'transparent', backgroundColor:'rgba(59,139,212,0.4)', showLine:true, pointRadius:0, fill:{target:{value:0}}, tension:0.4, order:2 },
+      { data:[{x:0,y:0},{x:0,y:phi(0)}], borderColor:'#EF9F27', borderDash:[4,3], showLine:true, pointRadius:0, borderWidth:1.5, order:1 }
+    ]},
+    options: opts2
+  });
+  charts.c2b = new Chart(document.getElementById('c2b'), {
+    type:'scatter',
+    data: { datasets: [
+      { data:xs.map(x=>({x,y:Phi(x)})), borderColor:'#1D9E75', backgroundColor:'transparent', showLine:true, pointRadius:0, borderWidth:2.5, tension:0.3 },
+      { data:[{x:0,y:Phi(0)}], borderColor:'#EF9F27', backgroundColor:'#EF9F27', pointRadius:7, showLine:false }
+    ]},
+    options: { ...noTooltip, scales:{ x:{type:'linear',min:-4,max:4,grid:{color:gc},ticks:{color:tc,font:{size:9}}}, y:{min:0,max:1,grid:{color:gc},ticks:{color:tc,font:{size:9},maxTicksLimit:5}} } }
+  });
+}
+function updateCDF(z) {
+  document.getElementById('s2v').textContent = 'x = ' + z.toFixed(2);
+  if (!charts.c2a) return;
+  charts.c2a.data.datasets[1].data = xs.filter(x=>x<=z).map(x=>({x,y:phi(x)}));
+  charts.c2a.data.datasets[2].data = [{x:z,y:0},{x:z,y:phi(z)}];
+  charts.c2a.update('none');
+  charts.c2b.data.datasets[1].data = [{x:z,y:Phi(z)}];
+  charts.c2b.update('none');
+}
+
+// --- STEP 3 ---
+function initC3() {
+  charts.c3 = new Chart(document.getElementById('c3'), {
+    type:'scatter',
+    data: { datasets: [
+      { data:xs.map(x=>({x,y:phi(x)})), borderColor:'#3B8BD4', backgroundColor:'rgba(59,139,212,0.06)', showLine:true, pointRadius:0, borderWidth:2, fill:true, tension:0.4, order:3 },
+      { data:[], borderColor:'transparent', backgroundColor:'rgba(226,75,74,0.45)', showLine:true, pointRadius:0, fill:{target:{value:0}}, tension:0.4, order:2 },
+      { data:[], borderColor:'#E24B4A', borderDash:[4,3], showLine:true, pointRadius:0, borderWidth:2, order:1 }
+    ]},
+    options: { ...noTooltip, scales:{ x:{type:'linear',min:-4,max:4,title:{display:true,text:'z',color:tc,font:{size:11}},grid:{color:gc},ticks:{color:tc,font:{size:10}}}, y:{min:0,max:0.45,grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:5}} } }
+  });
+}
+function updateP(z) {
+  document.getElementById('s3v').textContent = 'z = ' + z.toFixed(2);
+  if (!charts.c3) return;
+  charts.c3.data.datasets[1].data = xs.filter(x=>x>=z).map(x=>({x,y:phi(x)}));
+  charts.c3.data.datasets[2].data = [{x:z,y:0},{x:z,y:phi(z)}];
+  charts.c3.update('none');
+  const p = 1 - Phi(z);
+  const vd = document.getElementById('verdict3');
+  if (p < 0.01) { vd.className='verdict verdict-sig'; vd.textContent=`p = ${p.toFixed(4)} — Extremely rare! Very strong evidence against H₀`; }
+  else if (p < 0.05) { vd.className='verdict verdict-sig'; vd.textContent=`p = ${p.toFixed(4)} — Rare (p < 0.05). Evidence against H₀`; }
+  else if (p < 0.10) { vd.className='verdict verdict-ns'; vd.textContent=`p = ${p.toFixed(4)} — Borderline. Weak evidence against H₀`; }
+  else { vd.className='verdict verdict-ns'; vd.textContent=`p = ${p.toFixed(4)} — Not surprising at all. No evidence against H₀`; }
+}
+
+// --- STEP 4 ---
+let tailMode = 0;
+function initC4() {
+  charts.c4 = new Chart(document.getElementById('c4'), {
+    type:'scatter',
+    data: { datasets: [
+      { data:xs.map(x=>({x,y:phi(x)})), borderColor:'#3B8BD4', backgroundColor:'rgba(59,139,212,0.06)', showLine:true, pointRadius:0, borderWidth:2, fill:true, tension:0.4, order:3 },
+      { data:[], borderColor:'transparent', backgroundColor:'rgba(226,75,74,0.45)', showLine:true, pointRadius:0, fill:{target:{value:0}}, tension:0.4, order:2 },
+      { data:[], borderColor:'transparent', backgroundColor:'rgba(226,75,74,0.45)', showLine:true, pointRadius:0, fill:{target:{value:0}}, tension:0.4, order:2 },
+      { data:[], borderColor:'#E24B4A', borderDash:[4,3], showLine:true, pointRadius:0, borderWidth:2, order:1 }
+    ]},
+    options: { ...noTooltip, scales:{ x:{type:'linear',min:-4,max:4,title:{display:true,text:'z',color:tc,font:{size:11}},grid:{color:gc},ticks:{color:tc,font:{size:10}}}, y:{min:0,max:0.45,grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:5}} } }
+  });
+}
+function setTail(m) {
+  tailMode = m;
+  [0,1,2].forEach(i => document.getElementById('tb'+i).className = 'tail-btn' + (i===m?' sel':''));
+  updateTail(parseFloat(document.getElementById('s4').value) / 100);
+}
+function updateTail(z) {
+  document.getElementById('s4v').textContent = 'z = ' + z.toFixed(2);
+  if (!charts.c4) return;
+  let p, formula, t1 = [], t2 = [];
+  const az = Math.abs(z);
+  if (tailMode === 0) { p = 1-Phi(z); formula='P-value = P(Z ≥ z | H₀) = 1 − F(z)   [upper / right tail]'; t1=xs.filter(x=>x>=z).map(x=>({x,y:phi(x)})); }
+  else if (tailMode === 1) { p = Phi(z); formula='P-value = P(Z ≤ z | H₀) = F(z)   [lower / left tail]'; t1=xs.filter(x=>x<=z).map(x=>({x,y:phi(x)})); }
+  else { p = 2*(1-Phi(az)); formula='P-value = P(|Z| ≥ |z| | H₀) = 2 · (1 − F(|z|))   [two-tailed]'; t1=xs.filter(x=>x>=az).map(x=>({x,y:phi(x)})); t2=xs.filter(x=>x<=-az).map(x=>({x,y:phi(x)})); }
+  charts.c4.data.datasets[1].data = t1;
+  charts.c4.data.datasets[2].data = t2;
+  charts.c4.data.datasets[3].data = [{x:z,y:0},{x:z,y:phi(z)}];
+  charts.c4.update('none');
+  document.getElementById('tailFormula').textContent = formula;
+  const pn = Math.max(0, p);
+  const vd = document.getElementById('verdict4');
+  vd.className = 'verdict ' + (pn < 0.05 ? 'verdict-sig' : 'verdict-ns');
+  vd.textContent = `p = ${pn.toFixed(4)}` + (pn < 0.05 ? ' — Significant (p < 0.05) ✓' : ' — Not significant (p ≥ 0.05)');
+}
+
+// --- STEP 5 ---
+function initC5() {
+  charts.c5 = new Chart(document.getElementById('c5'), {
+    type:'scatter',
+    data: { datasets: [
+      { data:xs.map(x=>({x,y:phi(x)})), borderColor:'#3B8BD4', backgroundColor:'rgba(59,139,212,0.06)', showLine:true, pointRadius:0, borderWidth:2, fill:true, tension:0.4, yAxisID:'y' },
+      { data:[], borderColor:'transparent', backgroundColor:'rgba(226,75,74,0.45)', showLine:true, pointRadius:0, fill:{target:{value:0}}, tension:0.4, yAxisID:'y' },
+      { data:xs.map(x=>({x,y:Phi(x)})), borderColor:'#1D9E75', backgroundColor:'transparent', showLine:true, pointRadius:0, borderWidth:2.5, tension:0.3, yAxisID:'y2' },
+      { data:[], borderColor:'#E24B4A', borderDash:[4,3], showLine:true, pointRadius:0, borderWidth:2, yAxisID:'y' }
+    ]},
+    options: {
+      ...noTooltip,
+      scales: {
+        x: { type:'linear', min:-4, max:4, title:{display:true,text:'z',color:tc,font:{size:11}}, grid:{color:gc}, ticks:{color:tc,font:{size:10}} },
+        y: { min:0, max:0.45, title:{display:true,text:'f(z) — PDF',color:'#185FA5',font:{size:10}}, grid:{color:gc}, ticks:{color:tc,font:{size:9},maxTicksLimit:4} },
+        y2:{ type:'linear', position:'right', min:0, max:1, title:{display:true,text:'F(z) — CDF',color:'#0F6E56',font:{size:10}}, grid:{drawOnChartArea:false}, ticks:{color:tc,font:{size:9},maxTicksLimit:5} }
+      }
+    }
+  });
+}
+function updateSummary(z) {
+  document.getElementById('s5v').textContent = 'z = ' + z.toFixed(2);
+  if (!charts.c5) return;
+  charts.c5.data.datasets[1].data = xs.filter(x=>x>=z).map(x=>({x,y:phi(x)}));
+  charts.c5.data.datasets[3].data = [{x:z,y:0},{x:z,y:phi(z)}];
+  charts.c5.update('none');
+  document.getElementById('ss1').textContent = phi(z).toFixed(4);
+  document.getElementById('ss2').textContent = Phi(z).toFixed(4);
+  document.getElementById('ss3').textContent = (1-Phi(z)).toFixed(4);
+}
+
+// Slider fill track update (visual polish)
+document.querySelectorAll('input[type=range]').forEach(s => {
+  function updateTrack() {
+    const pct = ((s.value - s.min) / (s.max - s.min)) * 100;
+    s.style.setProperty('--pct', pct + '%');
+  }
+  s.addEventListener('input', updateTrack);
+  updateTrack();
+});
+</script>
+</body>
+</html>
